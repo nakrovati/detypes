@@ -33,7 +33,7 @@ describe('transform function', () => {
       path.resolve(__dirname, '../test-files/input.vue'),
     )
 
-    expect(output).toMatchFileSnapshot('../test-files/expected/input.vue')
+    await expect(output).toMatchFileSnapshot('../test-files/expected/input.vue')
   })
 
   it('transforms vue with defineProps', async () => {
