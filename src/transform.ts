@@ -1,19 +1,15 @@
+import type { TransformOptions as BabelTransformOptions } from '@babel/core'
+import type { Node, VisitNodeObject } from '@babel/traverse'
+import type { SFCScriptBlock } from '@vue/compiler-sfc'
+import type { PrettierOptions } from '.'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { dirname, isAbsolute, resolve } from 'node:path'
-import type {
-  TransformOptions as BabelTransformOptions,
-} from '@babel/core'
+import { transformAsync } from '@babel/core'
+// @ts-expect-error: No typings needed
+import babelTs from '@babel/preset-typescript'
 import {
-  transformAsync,
-} from '@babel/core'
-import type { Node, VisitNodeObject } from '@babel/traverse'
-import { format } from 'prettier'
-import type {
-  SFCScriptBlock,
-} from '@vue/compiler-sfc'
-import {
-  MagicString,
   compileScript,
+  MagicString,
   parse,
   registerTS,
 } from '@vue/compiler-sfc'
@@ -22,12 +18,10 @@ import {
   isSimpleExpressionNode as isVueSimpleExpressionNode,
   traverse as traverseVueAst,
 } from '@vuedx/template-ast-types'
-// @ts-expect-error: No typinggs needed
-import babelTs from '@babel/preset-typescript'
-import type { PrettierOptions } from '.'
+import { format } from 'prettier'
 
 function getDefinePropsObject(content: string) {
-  const matched = /\sprops:\s*\{/m.exec(content)
+  const matched = /\sprops:\s*\{/.exec(content)
   if (matched) {
     const startContentIndex = matched.index + matched[0].length - 1
     let leftBracketCount = 1
@@ -46,14 +40,14 @@ function getDefinePropsObject(content: string) {
 }
 
 export interface RemoveTypeOptions {
-/** Whether to remove ts-ignore and ts-expect-error comments */
+  /** Whether to remove ts-ignore and ts-expect-error comments */
   removeTsComments?: boolean
   /** Escape hatch for customizing Babel configuration */
   customizeBabelConfig?: (config: BabelTransformOptions) => void
 }
 
 export interface TransformOptions extends RemoveTypeOptions {
-/** Prettier options */
+  /** Prettier options */
   prettierOptions?: PrettierOptions | null
 }
 
@@ -76,9 +70,7 @@ export async function transform(
 
   if (fileName.endsWith('.vue'))
     code = await transformVue(code, fileName, options)
-
-  else
-    code = await removeTypes(code, fileName, removeTypeOptions)
+  else code = await removeTypes(code, fileName, removeTypeOptions)
 
   return await format(code, {
     ...prettierOptions,
@@ -109,8 +101,8 @@ export async function transformVue(
    */
   let propsContent = ''
   let emitsContent = ''
-  const isContainsDefinePropsType = script2?.content.match(/defineProps\s*</m)
-  const isContainsDefineEmitType = script2?.content.match(/defineEmits\s*</m)
+  const isContainsDefinePropsType = script2?.content.match(/defineProps\s*</)
+  const isContainsDefineEmitType = script2?.content.match(/defineEmits\s*</)
   if (isContainsDefinePropsType || isContainsDefineEmitType) {
     const typescript = await import('typescript')
     registerTS(() => typescript.default)
@@ -146,7 +138,8 @@ export async function transformVue(
       propsContent = getDefinePropsObject(content)
 
     if (isContainsDefineEmitType)
-      emitsContent = content.match(/\semits:\s(\[.*\]?)/m)?.[1] || ''
+      // eslint-disable-next-line regexp/optimal-quantifier-concatenation
+      emitsContent = content.match(/\semits:\s(\[.*\]?)/)?.[1] || ''
   }
 
   const removeVueSfcScriptOptions: Omit<TransformOptions, 'prettierOptions'> = {
@@ -197,7 +190,10 @@ export async function transformVue(
             if (parts.length === 3) {
               const content = parts[parts.length - 1]
               expressionCodeList.push(content)
-              locs.push([node.loc.start.offset + node.content.length - content.length, node.loc.end.offset])
+              locs.push([
+                node.loc.start.offset + node.content.length - content.length,
+                node.loc.end.offset,
+              ])
             }
             else {
               expressionCodeList.push(node.content)
@@ -213,13 +209,17 @@ export async function transformVue(
           const content = node.tag
           expressionCodeList.push(node.tag)
           let start = node.loc.start.offset + 1
-          locs.push([start, start += content.length])
+          locs.push([start, (start += content.length)])
         }
       },
     })
 
     const delimiter = `['---detypes-delimiter---'];`
-    expressionCode = (await removeTypes(expressionCodeList.map(c => `[${c}]`).join(`;${delimiter}`), `${fileName}.ts`, options))
+    expressionCode = await removeTypes(
+      expressionCodeList.map(c => `[${c}]`).join(`;${delimiter}`),
+      `${fileName}.ts`,
+      options,
+    )
     const lines = expressionCode.split(delimiter)
     for (let i = 0; i < locs.length; i++) {
       const loc = locs[i]
@@ -259,12 +259,12 @@ async function removeTypes(
   fileName: string,
   options: RemoveTypeOptions,
 ) {
-// We want to collapse newline runs created by removing types while preserving
-// newline runes in the original code. This is especially important for
-// template literals, which can contain literal newlines.
-// Keep track of how many newlines in a newline run were replaced.
+  // We want to collapse newline runs created by removing types while preserving
+  // newline runes in the original code. This is especially important for
+  // template literals, which can contain literal newlines.
+  // Keep track of how many newlines in a newline run were replaced.
   code = code.replace(
-    /\n\n+/g,
+    /\n{2,}/g,
     match => `\n/* @detype: empty-line=${match.length} */\n`,
   )
   code = processMagicComments(code)
@@ -312,7 +312,7 @@ async function removeTypes(
       shouldPrintComment: comment =>
         comment !== '@detype: remove-me'
         && (!options.removeTsComments
-        || !comment.match(/^\s*(@ts-ignore|@ts-expect-error)/)),
+          || !comment.match(/^\s*(@ts-ignore|@ts-expect-error)/)),
     },
   }
 
@@ -325,16 +325,17 @@ async function removeTypes(
     !babelOutput
     || babelOutput.code === undefined
     || babelOutput.code === null
-  )
+  ) {
     throw new Error('Babel error')
+  }
 
   return (
     babelOutput.code
-      .replaceAll(/\n\n*/g, '\n')
-    // Subtract 2 from the newline count because we inserted two surrounding
-    // newlines when we initially created the detype: empty-line comment.
-      .replace(/\/\* @detype: empty-line=([0-9]+) \*\//g, (_match, p1) =>
-`\n`.repeat(p1 - 2))
+      .replaceAll(/\n+/g, '\n')
+      // Subtract 2 from the newline count because we inserted two surrounding
+      // newlines when we initially created the detype: empty-line comment.
+      .replace(/\/\* @detype: empty-line=(\d+) \*\//g, (_match, p1) =>
+        `\n`.repeat(p1 - 2))
   )
 }
 

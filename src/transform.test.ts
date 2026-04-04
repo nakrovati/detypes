@@ -38,12 +38,12 @@ describe('transform function', () => {
 
   it('transforms vue with defineProps', async () => {
     const output = await transform(
-`
-<script setup lang="ts">
-const props = defineProps<{ a: string }>()
-</script>
-`,
-'test.vue',
+      `
+      <script setup lang="ts">
+      const props = defineProps<{ a: string }>()
+      </script>
+      `,
+      'test.vue',
     )
 
     expect(output).toMatchInlineSnapshot(`

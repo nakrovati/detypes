@@ -1,6 +1,6 @@
+import type { RemoveTypeOptions } from './transform'
 import fs from 'node:fs'
 import { resolveConfig } from 'prettier'
-import type { RemoveTypeOptions } from './transform'
 import { removeMagicComments, transform } from './transform'
 
 const { readFile, writeFile } = fs.promises
