@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import glob from 'fast-glob'
+import { glob } from 'tinyglobby'
 import pkg from '../package.json'
 import { removeMagicCommentsFromFile, transformFile } from './transformFile'
 

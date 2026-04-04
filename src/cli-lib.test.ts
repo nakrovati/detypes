@@ -18,7 +18,7 @@ vi.mock('fs', async () => {
   }
 })
 vi.mock('./transformFile')
-vi.mock('fast-glob')
+vi.mock('tinyglobby')
 
 const originalConsoleError = console.error
 
@@ -148,7 +148,7 @@ describe('typeScript to JavaScript conversion', () => {
   it('walks the file system', async () => {
     const { stat, mkdir } = (await import('node:fs')).default.promises
     const { transformFile } = await import('./transformFile')
-    const glob = (await import('fast-glob')).default
+    const { glob } = await import('tinyglobby')
 
     vi.mocked(stat).mockResolvedValue({
       isFile: vi.fn().mockReturnValue(false),
@@ -303,7 +303,7 @@ describe('typeScript magic comment removal', () => {
   it('walks the file system', async () => {
     const { stat, mkdir } = (await import('node:fs')).default.promises
     const { removeMagicCommentsFromFile } = await import('./transformFile')
-    const glob = (await import('fast-glob')).default
+    const { glob } = await import('tinyglobby')
 
     vi.mocked(stat).mockResolvedValue({
       isFile: vi.fn().mockReturnValue(false),
