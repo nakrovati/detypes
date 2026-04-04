@@ -9,18 +9,19 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v6
+        with:
+          cache: true
 
       - name: Set node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
           node-version: 18.x
-          cache: pnpm
           registry-url: 'https://registry.npmjs.org'
 
       - run: npx changelogithub
@@ -29,7 +30,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
       - name: Install Dependencies
-        run: pnpm i
+        run: pnpm install
 
       - name: Test
         run: pnpm run test
